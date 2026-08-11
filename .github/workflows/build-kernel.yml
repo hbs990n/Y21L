@@ -35,21 +35,7 @@ jobs:
       - name: 适配 python3（老内核 gcc-wrapper.py 是 python2 语法）
         run: |
           sed -i '1s|.*|#!/usr/bin/env python3|' scripts/gcc-wrapper.py
-          python3 - <<'PYEOF'
-import re
-p = 'scripts/gcc-wrapper.py'
-src = open(p, encoding='utf-8').read()
-src = src.replace('print "error, forbidden warning:", m.group(2)',
-                  'print("error, forbidden warning:", m.group(2))')
-src = src.replace('print line,', 'print(line, end=" ")')
-src = src.replace("print args[0] + ':',e.strerror",
-                  "print(args[0] + ':', e.strerror)")
-src = src.replace("print 'Is your PATH set correctly?'",
-                  "print('Is your PATH set correctly?')")
-src = src.replace("print ' '.join(args), str(e)",
-                  "print(' '.join(args), str(e))")
-open(p, 'w', encoding='utf-8').write(src)
-PYEOF
+          python3 .github/py3fix.py
           python3 -c "import py_compile; py_compile.compile('scripts/gcc-wrapper.py')"
 
       - name: 配置内核（用 23 设备配置 msm8916_v23.config 做种子）
