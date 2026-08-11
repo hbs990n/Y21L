@@ -16,22 +16,20 @@ jobs:
           sudo apt-get install -y bc bison flex gcc git libssl-dev libncurses-dev \
             lzop unzip zip cpio
 
-      - name: 获取 arm-eabi-4.8 工具链（tarball 下载，master/main 分支都试）
+      - name: 获取 arm-eabi-4.8 工具链（GitHub 镜像 codeload，标准 AOSP 版本）
         run: |
-          mkdir -p toolchain/arm-eabi-4.8
-          cd toolchain/arm-eabi-4.8
-          for ref in master main; do
-            for i in 1 2 3 4 5; do
-              echo "尝试下载 arm-eabi-4.8@$ref (第 $i 次)"
-              curl -fL --retry 3 --retry-all-errors --connect-timeout 20 \
-                -o tc.tar.gz \
-                "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-eabi-4.8/+archive/refs/heads/$ref.tar.gz" \
-                && tar -xzf tc.tar.gz && rm -f tc.tar.gz && break 2
-              echo "下载失败，10 秒后重试..."
-              sleep 10
-            done
+          mkdir -p toolchain
+          for i in 1 2 3 4 5; do
+            echo "下载工具链 tarball (第 $i 次)"
+            curl -fL --retry 3 --retry-all-errors --connect-timeout 20 \
+              -o tc.tar.gz \
+              "https://codeload.github.com/Mustaavalkosta/android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.8/tar.gz/refs/heads/master" \
+              && break
+            echo "下载失败，10 秒后重试..."
+            sleep 10
           done
-          cd ../..
+          tar -xzf tc.tar.gz
+          mv android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.8-master toolchain/arm-eabi-4.8
           test -x toolchain/arm-eabi-4.8/bin/arm-eabi-gcc
 
       - name: 配置内核（用 23 设备配置 msm8916_v23.config 做种子）
