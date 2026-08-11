@@ -42,6 +42,10 @@ jobs:
         run: |
           python3 .github/spmfix.py
 
+      - name: 修复 fair.c（HMP 关闭时 select_best_cpu 参数不匹配）
+        run: |
+          python3 .github/fairfix.py
+
       - name: 配置内核（用 23 设备配置 msm8916_v23.config 做种子）
         run: |
           mkdir -p out
