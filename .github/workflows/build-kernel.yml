@@ -38,6 +38,10 @@ jobs:
           python3 .github/py3fix.py
           python3 -c "import py_compile; py_compile.compile('scripts/gcc-wrapper.py')"
 
+      - name: 修复 spm.h 的 static inline（CONFIG_MSM_SPM 关闭时头文件重复定义）
+        run: |
+          python3 .github/spmfix.py
+
       - name: 配置内核（用 23 设备配置 msm8916_v23.config 做种子）
         run: |
           mkdir -p out

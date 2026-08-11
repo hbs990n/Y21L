@@ -11,4 +11,7 @@ src = src.replace("print 'Is your PATH set correctly?'",
                   "print('Is your PATH set correctly?')")
 src = src.replace("print ' '.join(args), str(e)",
                   "print(' '.join(args), str(e))")
+src = src.replace("subprocess.Popen(args, stderr=subprocess.PIPE)",
+                  "subprocess.Popen(args, stderr=subprocess.PIPE,"
+                  " universal_newlines=True)")
 open(p, 'w', encoding='utf-8').write(src)
