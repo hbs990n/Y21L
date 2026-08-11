@@ -1,0 +1,86 @@
+name: build-kernel-21defconfig
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 安装编译依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex gcc git libssl-dev libncurses-dev \
+            lzop unzip zip cpio
+
+      - name: 获取 arm-eabi-4.8 工具链（GitHub 镜像 codeload，标准 AOSP 版本）
+        run: |
+          mkdir -p toolchain
+          for i in 1 2 3 4 5; do
+            echo "下载工具链 tarball (第 $i 次)"
+            curl -fL --retry 3 --retry-all-errors --connect-timeout 20 \
+              -o tc.tar.gz \
+              "https://codeload.github.com/Mustaavalkosta/android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.8/tar.gz/refs/heads/master" \
+              && break
+            echo "下载失败，10 秒后重试..."
+            sleep 10
+          done
+          tar -xzf tc.tar.gz
+          mv android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.8-master toolchain/arm-eabi-4.8
+          test -x toolchain/arm-eabi-4.8/bin/arm-eabi-gcc
+
+      - name: 适配 python3（老内核 gcc-wrapper.py 是 python2 语法）
+        run: |
+          sed -i '1s|.*|#!/usr/bin/env python3|' scripts/gcc-wrapper.py
+          python3 .github/py3fix.py
+          python3 -c "import py_compile; py_compile.compile('scripts/gcc-wrapper.py')"
+
+      - name: 修复 spm.h 的 static inline（关闭 CONFIG_MSM_SPM 时头文件重复定义；defconfig 下 MSM_SPM=y 不生效，仅保底）
+        run: |
+          python3 .github/spmfix.py
+
+      - name: 修复 fair.c（HMP 关闭时 select_best_cpu 参数不匹配；defconfig 下 SCHED_HMP=y 不生效，仅保底）
+        run: |
+          python3 .github/fairfix.py
+
+      - name: 修复 Makefile.boot（补 MSM8916 zreladdr；defconfig 下 AUTO_ZRELADDR=y 不生效，仅保底）
+        run: |
+          python3 .github/zreladdrfix.py
+
+      - name: 配置内核（用 21 源码自带 msm8916_defconfig 做种子，AUTO_ZRELADDR/SCHED_HMP/MSM_SPM 全部按 21 官方默认）
+        run: |
+          mkdir -p out
+          cp arch/arm/configs/msm8916_defconfig out/.config
+          make O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.8/bin/arm-eabi- olddefconfig
+          echo "===== 关键配置确认 ====="
+          grep -E "AUTO_ZRELADDR|SCHED_HMP|MSM_SPM|ARCH_MSM8916|AMSS_VERSION|DEBUG_LL|EARLY_PRINTK" out/.config
+
+      - name: 编译内核（-k 强制继续；完整日志落盘，界面只显示错误汇总）
+        run: |
+          make -j$(nproc) -k O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.8/bin/arm-eabi- \
+            HOSTCFLAGS="-fcommon" > out/build.log 2>&1 || true
+          grep -nE "error:|multiple definition|undefined reference|fatal error|No rule to make|No such file|syntax error|not remade|unexpected" out/build.log > out/errors.txt || true
+          if [ -s out/errors.txt ]; then
+            echo "===== 错误汇总（共 $(wc -l < out/errors.txt) 行）====="
+            head -80 out/errors.txt
+          else
+            echo "===== 未发现 error / fatal 行 ====="
+          fi
+          echo "===== 日志末尾 15 行 ====="
+          tail -15 out/build.log
+
+      - name: 上传产物与日志（编译失败也上传）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build-21defconfig
+          path: |
+            out/arch/arm/boot/zImage
+            out/arch/arm/boot/dts/qcom/
+            out/build.log
+            out/errors.txt
+            out/.config
+          if-no-files-found: ignore
