@@ -46,17 +46,29 @@ jobs:
         run: |
           python3 .github/fairfix.py
 
+      - name: 修复 Makefile.boot（补 MSM8916 zreladdr，空导致 zImage 链接失败）
+        run: |
+          python3 .github/zreladdrfix.py
+
       - name: 配置内核（用 23 设备配置 msm8916_v23.config 做种子）
         run: |
           mkdir -p out
           cp arch/arm/configs/msm8916_v23.config out/.config
           make O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.8/bin/arm-eabi- olddefconfig
 
-      - name: 编译内核（-k 强制继续，一次暴露所有错误；日志落盘）
+      - name: 编译内核（-k 强制继续；完整日志落盘，界面只显示错误汇总）
         run: |
-          set -o pipefail
           make -j$(nproc) -k O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.8/bin/arm-eabi- \
-            HOSTCFLAGS="-fcommon" 2>&1 | tee out/build.log
+            HOSTCFLAGS="-fcommon" > out/build.log 2>&1 || true
+          grep -nE "error:|multiple definition|undefined reference|fatal error|No rule to make|No such file|syntax error|not remade|unexpected" out/build.log > out/errors.txt || true
+          if [ -s out/errors.txt ]; then
+            echo "===== 错误汇总（共 $(wc -l < out/errors.txt) 行）====="
+            head -80 out/errors.txt
+          else
+            echo "===== 未发现 error / fatal 行 ====="
+          fi
+          echo "===== 日志末尾 15 行 ====="
+          tail -15 out/build.log
 
       - name: 上传产物与日志（编译失败也上传）
         if: always()
@@ -67,4 +79,5 @@ jobs:
             out/arch/arm/boot/zImage
             out/arch/arm/boot/dts/qcom/
             out/build.log
+            out/errors.txt
           if-no-files-found: ignore
