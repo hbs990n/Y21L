@@ -32,6 +32,26 @@ jobs:
           mv android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.8-master toolchain/arm-eabi-4.8
           test -x toolchain/arm-eabi-4.8/bin/arm-eabi-gcc
 
+      - name: 适配 python3（老内核 gcc-wrapper.py 是 python2 语法）
+        run: |
+          sed -i '1s|.*|#!/usr/bin/env python3|' scripts/gcc-wrapper.py
+          python3 - <<'PYEOF'
+import re
+p = 'scripts/gcc-wrapper.py'
+src = open(p, encoding='utf-8').read()
+src = src.replace('print "error, forbidden warning:", m.group(2)',
+                  'print("error, forbidden warning:", m.group(2))')
+src = src.replace('print line,', 'print(line, end=" ")')
+src = src.replace("print args[0] + ':',e.strerror",
+                  "print(args[0] + ':', e.strerror)")
+src = src.replace("print 'Is your PATH set correctly?'",
+                  "print('Is your PATH set correctly?')")
+src = src.replace("print ' '.join(args), str(e)",
+                  "print(' '.join(args), str(e))")
+open(p, 'w', encoding='utf-8').write(src)
+PYEOF
+          python3 -c "import py_compile; py_compile.compile('scripts/gcc-wrapper.py')"
+
       - name: 配置内核（用 23 设备配置 msm8916_v23.config 做种子）
         run: |
           mkdir -p out
@@ -41,7 +61,8 @@ jobs:
       - name: 编译内核（-k 强制继续，一次暴露所有错误；日志落盘）
         run: |
           set -o pipefail
-          make -j$(nproc) -k O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.8/bin/arm-eabi- 2>&1 | tee out/build.log
+          make -j$(nproc) -k O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.8/bin/arm-eabi- \
+            HOSTCFLAGS="-fcommon" 2>&1 | tee out/build.log
 
       - name: 上传产物与日志（编译失败也上传）
         if: always()
