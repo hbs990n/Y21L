@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -14,7 +14,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex gcc git libssl-dev libncurses-dev \
-            lzop mkbootimg unzip zip cpio
+            lzop unzip zip cpio
 
       - name: 获取 arm-eabi-4.8 工具链（与 build_kernel.sh 一致，重试3次）
         run: |
