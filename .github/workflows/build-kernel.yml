@@ -16,21 +16,21 @@ jobs:
           sudo apt-get install -y bc bison flex gcc git libssl-dev libncurses-dev \
             lzop unzip zip cpio
 
-      - name: 获取 arm-eabi-4.8 工具链（GitHub 镜像 codeload，标准 AOSP 版本）
+      - name: 获取 arm-eabi-4.7 工具链（GitHub 镜像 codeload，标准 AOSP 版本）
         run: |
           mkdir -p toolchain
           for i in 1 2 3 4 5; do
             echo "下载工具链 tarball (第 $i 次)"
             curl -fL --retry 3 --retry-all-errors --connect-timeout 20 \
               -o tc.tar.gz \
-              "https://codeload.github.com/Mustaavalkosta/android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.8/tar.gz/refs/heads/master" \
+              "https://codeload.github.com/Mustaavalkosta/android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.7/tar.gz/refs/heads/master" \
               && break
             echo "下载失败，10 秒后重试..."
             sleep 10
           done
           tar -xzf tc.tar.gz
-          mv android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.8-master toolchain/arm-eabi-4.8
-          test -x toolchain/arm-eabi-4.8/bin/arm-eabi-gcc
+          mv android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.7-master toolchain/arm-eabi-4.7
+          test -x toolchain/arm-eabi-4.7/bin/arm-eabi-gcc
 
       - name: 适配 python3（老内核 gcc-wrapper.py 是 python2 语法）
         run: |
@@ -54,11 +54,11 @@ jobs:
         run: |
           mkdir -p out
           cp arch/arm/configs/msm8916_v23.config out/.config
-          make O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.8/bin/arm-eabi- olddefconfig
+          make O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.7/bin/arm-eabi- olddefconfig
 
       - name: 编译内核（-k 强制继续；完整日志落盘，界面只显示错误汇总）
         run: |
-          make -j$(nproc) -k O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.8/bin/arm-eabi- \
+          make -j$(nproc) -k O=out ARCH=arm CROSS_COMPILE=$PWD/toolchain/arm-eabi-4.7/bin/arm-eabi- \
             HOSTCFLAGS="-fcommon" > out/build.log 2>&1 || true
           grep -nE "error:|multiple definition|undefined reference|fatal error|No rule to make|No such file|syntax error|not remade|unexpected" out/build.log > out/errors.txt || true
           if [ -s out/errors.txt ]; then
